@@ -60,7 +60,17 @@ ARGON2_MEMORY=16  # -m memory (2^16=65536)
 ARGON2_MIN_ITERATIONS=16
 ARGON2_OBFUSCATOR_LENGTH=16384 # -l hash length
 PASSWORD_FINAL_OUTPUT_LENGTH=64
-SHASUM_MIN_ITERATIONS=16
+#DO_NOT_ECHO_INPUTS_TO_SCREEN="-s"  # remove the [#] from the beginning of this line for a stealthier mode
+SHA_512_MIN_ITERATIONS=16
+HELP="It's better to use a local (non-online) password manager (keepassx comes to mind) than this script\n\n
+You will have to remember a master password and 2-3, possibly 4 numbers\n\n
+\_(⊙_ʖ⊙)_/     ¯٩(͡๏̯͡๏)۶     (ఠ_ఠ)     (yeah, asking too much from brain power)\n\n
+Asks for:\n\n
+- a website name / mail address / whatever : this is the salt\n\n
+- a master password\n\n
+- first iterations number (n>=$SHA_512_MIN_ITERATIONS) to obfustate the salt (executes n SHA-512); the higher, the better\n\n
+- second iterations number (n>=$ARGON2_MIN_ITERATIONS) to obfustate the password using argon2 (higher CPU cost than SHA-512); the higher, the better\n\n
+- optional password length number (n>=$PASSWORD_FINAL_OUTPUT_LENGTH); just press ENTER to accept the default $PASSWORD_FINAL_OUTPUT_LENGTH characters\n"
 #
 #########################################################
 #
@@ -70,19 +80,10 @@ echo "Deterministic password generator"
 echo
 echo "Generate \"strong\" NON-RANDOM passwords for your accounts"
 echo
-help="It's better to use a local (non-online) password manager (keepassx comes to mind) than this script\n\n
-You will have to remember a master password and 2-3, possibly 4 numbers\n\n
-\_(⊙_ʖ⊙)_/     ¯٩(͡๏̯͡๏)۶     (ఠ_ఠ)     (yeah, asking too much from brain power)\n\n
-Asks for:\n\n
-- a website name / mail address / whatever : this is the salt\n\n
-- a master password\n\n
-- first iterations number (n>=$SHASUM_MIN_ITERATIONS) to obfustate the salt (executes n SHA-512); the higher, the better\n\n
-- second iterations number (n>=$ARGON2_MIN_ITERATIONS) to obfustate the password using argon2 (higher CPU cost than shasum); the higher, the better\n\n
-- optional password length number (n>=$PASSWORD_FINAL_OUTPUT_LENGTH); just press ENTER to accept the default $PASSWORD_FINAL_OUTPUT_LENGTH characters\n"
 #
 if [ ! -z $1 ]
    then 
-      echo -e $help
+      echo -e $HELP
       exit
 fi
 #
@@ -90,33 +91,66 @@ fi
 #
 #Get variables
 #
-read -p "Website / mail account / whatever ? " ARGON2_SALT
-#
-read -s -p "Master password ? " ARGON2_PASSWORD
-echo
-#
-SHASUM_ITERATIONS=0
-while (($SHASUM_ITERATIONS < $SHASUM_MIN_ITERATIONS))
+STEALTH_MODE="OFF"
+while [ "$STEALTH_MODE"  == "OFF" ]
    do
-      read -p "Iterations for shasums (min=$SHASUM_MIN_ITERATIONS) ? " SHASUM_ITERATIONS
+      echo "Stealth Mode"
+      read -p "Do you want to hide your typing ? Type [ YES ] & press [ ENTER ] for \"Stealth Mode\" or simply press [ ENTER ] for normal working " STEALTH_MODE
+      STEALTH_MODE=$(      
+            case "$STEALTH_MODE" in
+               "YES") echo "ON" ;;
+               "") echo "" ;;
+               *) echo "OFF" ;;
+            esac)
    done
+if [[ $STEALTH_MODE == "ON" ]]
+   then STEALTH_MODE="-s"
+   else STEALTH_MODE=""
+fi
+#
+ARGON2_SALT=""
+while [ -z "$ARGON2_SALT" ]
+   do
+      read $STEALTH_MODE -p "Website / mail account / whatever ? " ARGON2_SALT
+   done
+[ ! $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
+#
+ARGON2_PASSWORD=""
+while [ -z "$ARGON2_PASSWORD" ]
+   do
+      read -s -p "Master password (hidden keyboard input) ? " ARGON2_PASSWORD # forcefully hiding the password
+   done
+echo # because of "read -s" :	secure input - don't echo input on a terminal (passwords!)
+#
+SHA_512_ITERATIONS=0
+while (($SHA_512_ITERATIONS < $SHA_512_MIN_ITERATIONS))
+   do
+      read $STEALTH_MODE -p "Iterations for SHA-512 (min=$SHA_512_MIN_ITERATIONS) ? " SHA_512_ITERATIONS
+      [ ! -z "${SHA_512_ITERATIONS##*[!0-9]*}" ]  || SHA_512_ITERATIONS=0 # test if the user inputs a positive integer, forcing wait until this condition is met
+   done
+[ ! $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
 #
 ARGON2_ITERATIONS=0
 while (($ARGON2_ITERATIONS < $ARGON2_MIN_ITERATIONS))
    do
-      read -p "Iterations for argon (min=$ARGON2_MIN_ITERATIONS) ? " ARGON2_ITERATIONS
+      read $STEALTH_MODE -p "Iterations for ARGON2 (min=$ARGON2_MIN_ITERATIONS) ? " ARGON2_ITERATIONS
+      [ ! -z "${ARGON2_ITERATIONS##*[!0-9]*}" ]  || ARGON2_ITERATIONS=0 # test if the user inputs a positive integer, forcing wait until this condition is met
    done
+[ ! $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
 #
 MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH=0
 while (($MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH == 0))
    do
-      read -p "Desired length of password (>=11) or press ENTER for the default length of $PASSWORD_FINAL_OUTPUT_LENGTH? " READ_NUMBER
-      if [ -z $READ_NUMBER ]
-         then MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH=$PASSWORD_FINAL_OUTPUT_LENGTH
-         else (( $READ_NUMBER < 11 ))  || MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH=$READ_NUMBER
-      fi
+      read $STEALTH_MODE -p "Desired length of password (>=11) or press ENTER for the default length of $PASSWORD_FINAL_OUTPUT_LENGTH ? " MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH
+      MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH=$(      
+            case "$MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH" in
+               "") echo $PASSWORD_FINAL_OUTPUT_LENGTH ;;
+               *) [ -z "${MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH##*[!0-9]*}" ] && echo 0 || echo $MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH;;
+            esac)
+      (( $MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH >= 11 ))  || MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH=0
    done
 PASSWORD_FINAL_OUTPUT_LENGTH=$MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH
+[ ! $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
 #
 #########################################################
 #
@@ -127,7 +161,7 @@ PASSWORD_FINAL_OUTPUT_LENGTH=$MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH
 # SHA-512 obfuscator
 #
 echo "Computing SHA-512..."
-for (( i  = 1; i <= $SHASUM_ITERATIONS; i++ ))
+for (( i  = 1; i <= $SHA_512_ITERATIONS; i++ ))
       do
          ARGON2_PASSWORD+=$(echo "$ARGON2_PASSWORD" | shasum -a 512 | awk '{ print $1 }') # cumulative obfuscation for password using SHA-512
          ARGON2_SALT+=$(echo "$ARGON2_SALT" | shasum -a 512 | awk '{ print $1 }') # cumulative obfuscation for salt using SHA-512
@@ -145,7 +179,7 @@ ARGON2_SALT=$(echo $ARGON2_SALT | xxd -r -p | tr -cd '[!-~]' | cut -c 1-$ARGON2_
 #
 #########################################################
 #
-# "Argonize" -> argon 2 used as another obfuscator
+# "Argonize" -> argon2 used as another obfuscator
 #
 echo "Computing ARGON2..."
 ARGON2_OUTPUT=$(echo -n "'$ARGON2_PASSWORD'" | argon2 $ARGON2_SALT -d -t $ARGON2_ITERATIONS -m $ARGON2_MEMORY -p $ARGON2_CPU_THREADS -l $ARGON2_OBFUSCATOR_LENGTH)
@@ -165,4 +199,3 @@ echo
 echo "Outputing $PASSWORD_FINAL_OUTPUT_LENGTH characters length password:"
 echo "$ARGON2_OUTPUT_HASH" | xxd -r -p | tr -cd '[!-~]' | cut -c 1-$PASSWORD_FINAL_OUTPUT_LENGTH # generate ASCII string from [!] to [~]
 echo
-
