@@ -112,7 +112,7 @@ while [ -z "$ARGON2_SALT" ]
    do
       read $STEALTH_MODE -p "Website / mail account / whatever ? " ARGON2_SALT
    done
-[ ! $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
+[ -z $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
 #
 ARGON2_PASSWORD=""
 while [ -z "$ARGON2_PASSWORD" ]
@@ -127,7 +127,7 @@ while (($SHA_512_ITERATIONS < $SHA_512_MIN_ITERATIONS))
       read $STEALTH_MODE -p "Iterations for SHA-512 (min=$SHA_512_MIN_ITERATIONS) ? " SHA_512_ITERATIONS
       [ ! -z "${SHA_512_ITERATIONS##*[!0-9]*}" ]  || SHA_512_ITERATIONS=0 # test if the user inputs a positive non zero integer, forcing wait until this condition is met
    done
-[ ! $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
+[ -z $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
 #
 ARGON2_ITERATIONS=0
 while (($ARGON2_ITERATIONS < $ARGON2_MIN_ITERATIONS))
@@ -135,7 +135,7 @@ while (($ARGON2_ITERATIONS < $ARGON2_MIN_ITERATIONS))
       read $STEALTH_MODE -p "Iterations for ARGON2 (min=$ARGON2_MIN_ITERATIONS) ? " ARGON2_ITERATIONS
       [ ! -z "${ARGON2_ITERATIONS##*[!0-9]*}" ]  || ARGON2_ITERATIONS=0 # test if the user inputs a positive non zero integer, forcing wait until this condition is met
    done
-[ ! $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
+[ -z $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
 #
 MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH=0
 while (($MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH == 0))
@@ -149,7 +149,7 @@ while (($MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH == 0))
       (( $MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH >= 11 ))  || MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH=0
    done
 PASSWORD_FINAL_OUTPUT_LENGTH=$MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH
-[ ! $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
+[ -z $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
 #
 #########################################################
 #
