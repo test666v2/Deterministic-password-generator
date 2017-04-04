@@ -60,7 +60,6 @@ ARGON2_MEMORY=16  # -m memory (2^16=65536)
 ARGON2_MIN_ITERATIONS=16
 ARGON2_OBFUSCATOR_LENGTH=16384 # -l hash length
 PASSWORD_FINAL_OUTPUT_LENGTH=64
-#DO_NOT_ECHO_INPUTS_TO_SCREEN="-s"  # remove the [#] from the beginning of this line for a stealthier mode
 SHA_512_MIN_ITERATIONS=16
 HELP="It's better to use a local (non-online) password manager (keepassx comes to mind) than this script\n\n
 You will have to remember a master password and 2-3, possibly 4 numbers\n\n
