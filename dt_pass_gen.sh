@@ -125,7 +125,7 @@ SHA_512_ITERATIONS=0
 while (($SHA_512_ITERATIONS < $SHA_512_MIN_ITERATIONS))
    do
       read $STEALTH_MODE -p "Iterations for SHA-512 (min=$SHA_512_MIN_ITERATIONS) ? " SHA_512_ITERATIONS
-      [ ! -z "${SHA_512_ITERATIONS##*[!0-9]*}" ]  || SHA_512_ITERATIONS=0 # test if the user inputs a positive integer, forcing wait until this condition is met
+      [ ! -z "${SHA_512_ITERATIONS##*[!0-9]*}" ]  || SHA_512_ITERATIONS=0 # test if the user inputs a positive non zero integer, forcing wait until this condition is met
    done
 [ ! $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
 #
@@ -133,7 +133,7 @@ ARGON2_ITERATIONS=0
 while (($ARGON2_ITERATIONS < $ARGON2_MIN_ITERATIONS))
    do
       read $STEALTH_MODE -p "Iterations for ARGON2 (min=$ARGON2_MIN_ITERATIONS) ? " ARGON2_ITERATIONS
-      [ ! -z "${ARGON2_ITERATIONS##*[!0-9]*}" ]  || ARGON2_ITERATIONS=0 # test if the user inputs a positive integer, forcing wait until this condition is met
+      [ ! -z "${ARGON2_ITERATIONS##*[!0-9]*}" ]  || ARGON2_ITERATIONS=0 # test if the user inputs a positive non zero integer, forcing wait until this condition is met
    done
 [ ! $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
 #
