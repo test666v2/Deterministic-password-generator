@@ -3,7 +3,7 @@
 ####################################################
 #
 # Deterministic password generator using argon2 and SHA-512
-# also bash, tr, xxd, grep, etc and your terminal of choice
+# also bash, awk, tr, xxd, grep, etc and your terminal of choice
 #
 # see https://github.com/P-H-C/phc-winner-argon2
 # see https://en.wikipedia.org/wiki/Argon2
@@ -62,14 +62,17 @@ ARGON2_OBFUSCATOR_LENGTH=16384 # -l hash length
 PASSWORD_FINAL_OUTPUT_LENGTH=64
 SHA_512_MIN_ITERATIONS=16
 HELP="It's better to use a local (non-online) password manager (keepassx comes to mind) than this script\n\n
-You will have to remember a master password and 2-3, possibly 4 numbers\n\n
+If you want a truly random password, type in terminal\n
+head /dev/urandom | tr -dc '[:graph:]' | fold -w64 | sed '$d' | shuf -n1\n\n
+If you stil want to use this script, you will have to remember a master password and 2 to 4 numbers (yikes!!)\n\n
 \_(⊙_ʖ⊙)_/     ¯٩(͡๏̯͡๏)۶     (ఠ_ఠ)     (yeah, asking too much from brain power)\n\n
-Asks for:\n\n
-- a website name / mail address / whatever : this is the salt\n\n
-- a master password\n\n
-- first iterations number (n>=$SHA_512_MIN_ITERATIONS) to obfustate the salt (executes n SHA-512); the higher, the better\n\n
-- second iterations number (n>=$ARGON2_MIN_ITERATIONS) to obfustate the password using argon2 (higher CPU cost than SHA-512); the higher, the better\n\n
-- optional password length number (n>=$PASSWORD_FINAL_OUTPUT_LENGTH); just press ENTER to accept the default $PASSWORD_FINAL_OUTPUT_LENGTH characters\n"
+It asks for:\n
+- a website name / mail address / whatever : this is the salt\n
+- a master password\n
+- the number of SHA-12 iterations (n>=$SHA_512_MIN_ITERATIONS, defaults to $SHA_512_MIN_ITERATIONS) to obfustate the salt; the higher, the better\n
+- the number of argon2 iterations (n>=$ARGON2_MIN_ITERATIONS, defaults to $ARGON2_MIN_ITERATIONS) to obfustate the password (argon 2 has a higher CPU cost than SHA-512); the higher, the better\n
+- an optional password length (minimum is 11 characters); just press ENTER to accept the default $PASSWORD_FINAL_OUTPUT_LENGTH characters\n
+- an optional password starting position; just enter <1> for a no-brainer password position\n\n"
 #
 #########################################################
 #
@@ -77,7 +80,7 @@ Asks for:\n\n
 echo
 echo "Deterministic password generator"
 echo
-echo "Generate \"strong\" NON-RANDOM passwords for your accounts"
+echo "Generate \"strong\" \"NON-RANDOM\" or \"deterministic passwords\" for your accounts"
 echo
 #
 if [ ! -z $1 ]
@@ -94,7 +97,7 @@ STEALTH_MODE="OFF"
 while [ "$STEALTH_MODE"  == "OFF" ]
    do
       echo "Stealth Mode"
-      read -p "Do you want to hide your typing ? Type [ YES ] & press [ ENTER ] for \"Stealth Mode\" or simply press [ ENTER ] for normal working " STEALTH_MODE
+      read -p "Do you want to hide your typing ? Type [ YES ] & press [ ENTER ] for \"Stealth Mode\" or simply press [ ENTER ] for normal working > " STEALTH_MODE
       STEALTH_MODE=$(      
             case "$STEALTH_MODE" in
                "YES") echo "ON" ;;
@@ -110,52 +113,56 @@ fi
 ARGON2_SALT=""
 while [ -z "$ARGON2_SALT" ]
    do
-      read $STEALTH_MODE -p "Website / mail account / whatever ? " ARGON2_SALT
+      read $STEALTH_MODE -p "Website / mail account / whatever (1 to $ARGON2_MAX_SALT_LENGTH characters) ? > " ARGON2_SALT
+      ARGON2_SALT_SIZE=$(echo $ARGON2_SALT | awk '{print length}')
+      (( $ARGON2_SALT_SIZE >= 1 ))  || ARGON2_SALT="" # keep loop until ARGON2_SALT >= 1 # hey, at least ONE character
+      (( $ARGON2_SALT_SIZE <= $ARGON2_MAX_SALT_LENGTH )) || ARGON2_SALT="" # keep loop until ARGON2_SALT <= ARGON2_MAX_SALT_LENGTH
    done
 [ -z $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
 #
 ARGON2_PASSWORD=""
 while [ -z "$ARGON2_PASSWORD" ]
    do
-      read -s -p "Master password (hidden keyboard input) ? " ARGON2_PASSWORD # forcefully hiding the password
+      read $STEALTH_MODE -p "Master Password (1 to $ARGON2_MAX_PASSWORD_LENGTH characters) ? > " ARGON2_PASSWORD
+      ARGON2_PASSWORD_SIZE=$(echo $ARGON2_PASSWORD | awk '{print length}')
+      (( $ARGON2_PASSWORD_SIZE >= 1 ))  || ARGON2_PASSWORD="" # keep loop until size of ARGON2_PASSWORD >= 1 # hey, at least ONE character
+      (( $ARGON2_PASSWORD_SIZE <= $ARGON2_MAX_PASSWORD_LENGTH )) || ARGON2_PASSWORD="" # keep loop until size of ARGON2_PASSWORD <= ARGON2_MAX_PASSWORD_LENGTH
    done
 echo # because of "read -s" :	secure input - don't echo input on a terminal (passwords!)
 #
 SHA_512_ITERATIONS=0
 while (($SHA_512_ITERATIONS < $SHA_512_MIN_ITERATIONS))
    do
-      read $STEALTH_MODE -p "Iterations for SHA-512 (min=$SHA_512_MIN_ITERATIONS) ? " SHA_512_ITERATIONS
-      [ ! -z "${SHA_512_ITERATIONS##*[!0-9]*}" ]  || SHA_512_ITERATIONS=0 # test if the user inputs a positive non zero integer, forcing wait until this condition is met
+      read $STEALTH_MODE -p "Iterations for SHA-512 (min=$SHA_512_MIN_ITERATIONS) ? > " SHA_512_ITERATIONS
+      [ ! -z "${SHA_512_ITERATIONS##*[!0-9]*}" ]  || SHA_512_ITERATIONS=0 # test if the user inputs a positive non zero integer, forcing loop until this condition is met
    done
 [ -z $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
 #
 ARGON2_ITERATIONS=0
 while (($ARGON2_ITERATIONS < $ARGON2_MIN_ITERATIONS))
    do
-      read $STEALTH_MODE -p "Iterations for ARGON2 (min=$ARGON2_MIN_ITERATIONS) ? " ARGON2_ITERATIONS
-      [ ! -z "${ARGON2_ITERATIONS##*[!0-9]*}" ]  || ARGON2_ITERATIONS=0 # test if the user inputs a positive non zero integer, forcing wait until this condition is met
+      read $STEALTH_MODE -p "Iterations for ARGON2 (min=$ARGON2_MIN_ITERATIONS) ? > " ARGON2_ITERATIONS
+      [ ! -z "${ARGON2_ITERATIONS##*[!0-9]*}" ]  || ARGON2_ITERATIONS=0 # test if the user inputs a positive non zero integer, forcing loop until this condition is met
    done
 [ -z $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
 #
 MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH=0
 while (($MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH == 0))
    do
-      read $STEALTH_MODE -p "Desired length of password (>=11) or press ENTER for the default length of $PASSWORD_FINAL_OUTPUT_LENGTH ? " MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH
+      read $STEALTH_MODE -p "Desired length of password (>=11) or press ENTER for the default length of $PASSWORD_FINAL_OUTPUT_LENGTH ? > " MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH
       MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH=$(      
             case "$MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH" in
                "") echo $PASSWORD_FINAL_OUTPUT_LENGTH ;;
                *) [ -z "${MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH##*[!0-9]*}" ] && echo 0 || echo $MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH;;
             esac)
-      (( $MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH >= 11 ))  || MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH=0
+      (( $MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH >= 11 ))  || MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH=0 # keep loop until password size >= 11 (11 is "hardcoded" for a decent password length)
    done
 PASSWORD_FINAL_OUTPUT_LENGTH=$MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH
 [ -z $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
 #
 #########################################################
 #
-#########################################################
-#
-# Obfuscator for ARGON2_PASSORD & ARGON2_SALT
+# Obfuscators for ARGON2_PASSWORD & ARGON2_SALT
 #
 # SHA-512 obfuscator
 #
@@ -168,13 +175,13 @@ for (( i  = 1; i <= $SHA_512_ITERATIONS; i++ ))
 #
 # Process password
 #
-ARGON2_PASSWORD=$(echo $ARGON2_PASSWORD | rev) # invert password string
-ARGON2_PASSWORD=$(echo $ARGON2_PASSWORD | xxd -r -p | tr -cd '[!-~]' | cut -c 1-$ARGON2_MAX_PASSWORD_LENGTH) # generate ASCII string from [!] to [~]
+ARGON2_PASSWORD=$(echo $ARGON2_PASSWORD | rev) # invert password string (for some more obfuscation "magic", just because we can) ### not satisfied, will see a better way ###
+ARGON2_PASSWORD=$(echo $ARGON2_PASSWORD | xxd -r -p | tr -cd '[!-~]' | cut -c 1-$ARGON2_MAX_PASSWORD_LENGTH) # generate ASCII string from [!] to [~] characters, triming the excess ### not satisfied, will see a better way ###
 #
 # Process salt
 #
-ARGON2_SALT=$(echo $ARGON2_SALT | rev) # invert salt string
-ARGON2_SALT=$(echo $ARGON2_SALT | xxd -r -p | tr -cd '[!-~]' | cut -c 1-$ARGON2_MAX_SALT_LENGTH) # generate ASCII string from [!] to [~]
+ARGON2_SALT=$(echo $ARGON2_SALT | rev) # invert salt string (for some more obfuscation "magic", just because we can) ### To review ### ### not satisfied, will see a better way ###
+ARGON2_SALT=$(echo $ARGON2_SALT | xxd -r -p | tr -cd '[!-~]' | cut -c 1-$ARGON2_MAX_SALT_LENGTH) # generate ASCII string from [!] to [~] characters, triming the excess ### not satisfied, will see a better way ###
 #
 #########################################################
 #
@@ -188,13 +195,38 @@ ARGON2_OUTPUT=$(echo -n "'$ARGON2_PASSWORD'" | argon2 $ARGON2_SALT -d -t $ARGON2
 # Process argon2 output
 #
 ARGON2_OUTPUT_HASH=$(echo "$ARGON2_OUTPUT" | grep "Hash"  | awk '{ print $2 }')
-ARGON2_OUTPUT_HASH+=$(echo "$ARGON2_OUTPUT" | grep "Encoded"  | awk '{ print $2 }')
 #
 #########################################################
 #
-# Build and report "deterministic password" to user
+# Build "deterministic password" (very long password)
+#
+FINAL_PASSWORD=$(echo "$ARGON2_OUTPUT_HASH" | xxd -r -p | tr -cd '[!-~]')
+FINAL_PASSWORD_SIZE=$(echo "$FINAL_PASSWORD" | awk '{print length}')
+#
+#########################################################
+#
+# Ask user for the position start for the "deterministic password"
 #
 echo
+echo "The built \"password\" has a size of $FINAL_PASSWORD_SIZE characters"
+echo "You can choose a position for the start of the reported position and get $PASSWORD_FINAL_OUTPUT_LENGTH continuous characters from this position onwards"
+echo "You can input a number between 1 and "$(( $FINAL_PASSWORD_SIZE - $PASSWORD_FINAL_OUTPUT_LENGTH + 1 ))
+PASSWORD_POSITION_START=0
+while (($PASSWORD_POSITION_START <= 0))
+   do
+      read $STEALTH_MODE -p "Password Position start ? (enter <1> for a no-brainer position) > " PASSWORD_POSITION_START
+      [ ! -z "${PASSWORD_POSITION_START##*[!0-9]*}" ]  || PASSWORD_POSITION_START=0 #  test if the user inputs a positive non zero integer, forcing loop until this condition is met
+      (( $PASSWORD_POSITION_START <= $(( $FINAL_PASSWORD_SIZE - $PASSWORD_FINAL_OUTPUT_LENGTH + 1 )) ))  || PASSWORD_POSITION_START=0 # test for upper limit size
+   done
+PASSWORD_POSITION_END=$(( $PASSWORD_POSITION_START + $PASSWORD_FINAL_OUTPUT_LENGTH - 1 ))
+[ -z $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
+#
+#########################################################
+#
+# Show the "deterministic password" to user
+#
+#echo
+echo
 echo "Outputing $PASSWORD_FINAL_OUTPUT_LENGTH characters length password:"
-echo "$ARGON2_OUTPUT_HASH" | xxd -r -p | tr -cd '[!-~]' | cut -c 1-$PASSWORD_FINAL_OUTPUT_LENGTH # generate ASCII string from [!] to [~]
+echo "$FINAL_PASSWORD" | cut -c $PASSWORD_POSITION_START-$PASSWORD_POSITION_END # Show password
 echo
