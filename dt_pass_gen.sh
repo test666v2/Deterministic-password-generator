@@ -69,7 +69,7 @@ If you stil want to use this script, you will have to remember a master password
 It asks for:\n
 - a website name / mail address / whatever : this is the salt\n
 - a master password\n
-- the number of SHA-12 iterations (n>=$SHA_512_MIN_ITERATIONS, defaults to $SHA_512_MIN_ITERATIONS) to obfustate the salt; the higher, the better\n
+- the number of SHA-512 iterations (n>=$SHA_512_MIN_ITERATIONS, defaults to $SHA_512_MIN_ITERATIONS) to obfustate the salt; the higher, the better\n
 - the number of argon2 iterations (n>=$ARGON2_MIN_ITERATIONS, defaults to $ARGON2_MIN_ITERATIONS) to obfustate the password (argon 2 has a higher CPU cost than SHA-512); the higher, the better\n
 - an optional password length (minimum is 11 characters); just press ENTER to accept the default $PASSWORD_FINAL_OUTPUT_LENGTH characters\n
 - an optional password starting position; just enter <1> for a no-brainer password position\n\n"
