@@ -77,9 +77,9 @@ To get some help, typing in the terminal the script name and any characters disp
 >>
 >>\- a master password
 >>
->>\- the number of SHA-512 iterations (n>=16, defaults to 16) to obfustate the salt; the higher, the better
+>>\- the number of SHA-512 iterations (n>=16, defaults to 16) to obfuscate the salt; the higher, the better
 >>
->>\- the number of argon2 iterations (n>=16, defaults to 16) to obfustate the password (argon 2 has a higher CPU cost than SHA-512); the higher, the better
+>>\- the number of argon2 iterations (n>=16, defaults to 16) to obfuscate the password (argon 2 has a higher CPU cost than SHA-512); the higher, the better
 >>
 >>\- an optional password length (minimum is 11 characters); just press ENTER to accept the default 64 characters
 >>
