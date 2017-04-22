@@ -73,7 +73,7 @@ To get some help, typing in the terminal the script name and any other character
 >>
 >>It asks for:
 >>
->>\- a website name / mail address / whatever : this is the salt
+>>\- a website name / mail address / whatever
 >>
 >>\- a master password
 >>
