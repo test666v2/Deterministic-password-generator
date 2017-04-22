@@ -87,7 +87,7 @@ echo
 echo "Generate \"strong\" \"NON-RANDOM\" or \"deterministic passwords\" for your accounts"
 echo
 
-if [ ! -z $1 ] # show $HELP & exit if there are any number of arguments in command line
+if [ ! -z "$1" ] # show $HELP & exit if there are any number of arguments in command line
    then
       echo -e "$HELP"
       exit
@@ -111,12 +111,12 @@ while [ "$STEALTH_MODE"  == "OFF" ]
 
 while [ -z "$ARGON2_SALT" ]
    do
-      read -r $STEALTH_MODE -p "Enter website / mail account / whatever (from 1 to $ARGON2_MAX_SALT_LENGTH characters) ? > " ARGON2_SALT
+      read -r "$STEALTH_MODE" -p "Enter website / mail account / whatever (from 1 to $ARGON2_MAX_SALT_LENGTH characters) ? > " ARGON2_SALT
       ARGON2_SALT_SIZE=$(echo "$ARGON2_SALT" | awk '{print length}')
       (( ARGON2_SALT_SIZE >= 1 ))  || ARGON2_SALT="" # keep loop until ARGON2_SALT >= 1 # hey USER, at least type ONE character
       (( ARGON2_SALT_SIZE <= ARGON2_MAX_SALT_LENGTH )) || ARGON2_SALT="" # keep loop until ARGON2_SALT <= ARGON2_MAX_SALT_LENGTH
    done
-[ -z $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
+[ -z "$STEALTH_MODE" ] || echo # writeln if STEALTH_MODE is enabled
 
 while [ -z "$ARGON2_PASSWORD" ]
    do
@@ -129,30 +129,30 @@ echo # because of "read -s" :	secure input - don't show typing on a terminal
 
 while (( SHA_512_ITERATIONS < SHA_512_MIN_ITERATIONS ))
    do
-      read -r $STEALTH_MODE -p "Iterations for SHA-512 (min=$SHA_512_MIN_ITERATIONS) ? > " SHA_512_ITERATIONS
+      read -r "$STEALTH_MODE" -p "Iterations for SHA-512 (min=$SHA_512_MIN_ITERATIONS) ? > " SHA_512_ITERATIONS
       [ ! -z "${SHA_512_ITERATIONS##*[!0-9]*}" ]  || SHA_512_ITERATIONS=0 # test if the user inputs a positive non zero integer, forcing loop until this condition is met
    done
-[ -z $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
+[ -z "$STEALTH_MODE" ] || echo # writeln if STEALTH_MODE is enabled
 
 while (( ARGON2_ITERATIONS < ARGON2_MIN_ITERATIONS ))
    do
-      read -r $STEALTH_MODE -p "Iterations for ARGON2 (min=$ARGON2_MIN_ITERATIONS) ? > " ARGON2_ITERATIONS
+      read -r "$STEALTH_MODE" -p "Iterations for ARGON2 (min=$ARGON2_MIN_ITERATIONS) ? > " ARGON2_ITERATIONS
       [ ! -z "${ARGON2_ITERATIONS##*[!0-9]*}" ]  || ARGON2_ITERATIONS=0 # test if the user inputs a positive non zero integer, forcing loop until this condition is met
    done
-[ -z $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
+[ -z "$STEALTH_MODE" ] || echo # writeln if STEALTH_MODE is enabled
 
 while (( MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH == 0 ))
    do
-      read -r $STEALTH_MODE -p "Desired length of password (>=11) or press ENTER for the default length of $PASSWORD_FINAL_OUTPUT_LENGTH ? > " MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH
+      read -r "$STEALTH_MODE" -p "Desired length of password (>=11) or press ENTER for the default length of $PASSWORD_FINAL_OUTPUT_LENGTH ? > " MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH
       MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH=$(
             case "$MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH" in
                "") echo $PASSWORD_FINAL_OUTPUT_LENGTH ;;
-               *) [ -z "${MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH##*[!0-9]*}" ] && echo 0 || echo $MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH;;
+               *) [ -z "${MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH##*[!0-9]*}" ] && echo 0 || echo "$MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH";;
             esac)
       (( MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH >= 11 ))  || MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH=0 # keep loop until password size >= 11 (11 is "hardcoded" for a decent password length)
    done
 PASSWORD_FINAL_OUTPUT_LENGTH=$MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH
-[ -z $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
+[ -z "$STEALTH_MODE" ] || echo # writeln if STEALTH_MODE is enabled
 
 ########################################################
 
@@ -169,13 +169,13 @@ for (( i  = 1; i <= SHA_512_ITERATIONS; i++ ))
 
 # Step 2 - Process ARGON2_PASSWORD
 
-ARGON2_PASSWORD=$(echo $ARGON2_PASSWORD | rev) # invert password string (for some more obfuscation "magic", just because we can) ### not satisfied, will see a better way, perhaps some "deterministic position switching" ##
-ARGON2_PASSWORD=$(echo $ARGON2_PASSWORD | xxd -r -p | tr -cd '!-~' | cut -c 1-$ARGON2_MAX_PASSWORD_LENGTH) # generate ASCII string from [!] to [~] characters, triming the excess ### not satisfied, will see a better way than trimming ##
+ARGON2_PASSWORD=$(echo "$ARGON2_PASSWORD" | rev) # invert password string (for some more obfuscation "magic", just because we can) ### not satisfied, will see a better way, perhaps some "deterministic position switching" ##
+ARGON2_PASSWORD=$(echo "$ARGON2_PASSWORD" | xxd -r -p | tr -cd '!-~' | cut -c 1-$ARGON2_MAX_PASSWORD_LENGTH) # generate ASCII string from [!] to [~] characters, triming the excess ### not satisfied, will see a better way than trimming ##
 
 # Step 3 - Process ARGON2_SALT
 
-ARGON2_SALT=$(echo $ARGON2_SALT | rev) # invert salt string (for some more obfuscation "magic", just because we can) ### not satisfied, will see a better way, perhaps some "deterministic position switching" ##
-ARGON2_SALT=$(echo $ARGON2_SALT | xxd -r -p | tr -cd '!-~' | cut -c 1-$ARGON2_MAX_SALT_LENGTH) # generate ASCII string from [!] to [~] characters, triming the excess ### not satisfied, will see a better way than trimming ##
+ARGON2_SALT=$(echo "$ARGON2_SALT" | rev) # invert salt string (for some more obfuscation "magic", just because we can) ### not satisfied, will see a better way, perhaps some "deterministic position switching" ##
+ARGON2_SALT=$(echo "$ARGON2_SALT" | xxd -r -p | tr -cd '!-~' | cut -c 1-$ARGON2_MAX_SALT_LENGTH) # generate ASCII string from [!] to [~] characters, triming the excess ### not satisfied, will see a better way than trimming ##
 
 ########################################################
 
@@ -207,12 +207,12 @@ echo "You can choose a position for the start of the reported position and get $
 echo "You can input a number between 1 and "$(( FINAL_PASSWORD_SIZE - PASSWORD_FINAL_OUTPUT_LENGTH + 1 ))
 while (( PASSWORD_POSITION_START == 0 ))
    do
-      read -r $STEALTH_MODE -p "Password Position start ? (enter <1> for a no-brainer position) > " PASSWORD_POSITION_START
+      read -r "$STEALTH_MODE" -p "Password Position start ? (enter <1> for a no-brainer position) > " PASSWORD_POSITION_START
       [ ! -z "${PASSWORD_POSITION_START##*[!0-9]*}" ]  || PASSWORD_POSITION_START=0 #  test if the user inputs a positive non zero integer, forcing loop until this condition is met
       (( PASSWORD_POSITION_START <= $(( FINAL_PASSWORD_SIZE - PASSWORD_FINAL_OUTPUT_LENGTH + 1 )) ))  || PASSWORD_POSITION_START=0 # test for upper limit size
    done
 PASSWORD_POSITION_END=$(( PASSWORD_POSITION_START + PASSWORD_FINAL_OUTPUT_LENGTH - 1 ))
-[ -z $STEALTH_MODE ] || echo # writeln if STEALTH_MODE is enabled
+[ -z "$STEALTH_MODE" ] || echo # writeln if STEALTH_MODE is enabled
 
 ########################################################
 
