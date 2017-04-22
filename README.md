@@ -1,12 +1,12 @@
 # Deterministic-password-generator
 
-Deterministic password generator using argon2 and SHA-512
+## Deterministic password generator using argon2 and SHA-512
 
-also bash, awk, tr, xxd, grep, etc and your terminal of choice
+### (also bash, awk, tr, xxd, grep, etc and your terminal of choice)
 
 You can have a master password and generate repeatable (deterministic) **"randomized strong"** passwords for you online accounts.
 
-
+In a terminal window: 
 
 >user@computer:~$ **/path/to/dt_pass_gen.sh**
 
