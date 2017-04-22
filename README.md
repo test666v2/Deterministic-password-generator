@@ -20,7 +20,7 @@ In a terminal window:
 >>
 >>Enter website / mail account / whatever (from 1 to 64 characters) ? \> **github.com example_user**
 >>
->>Enter master password (forced hidden keyboard typing) (from 1 to 110 characters) ? \> _typed password is_ **12345678_**
+>>Enter master password (forced hidden keyboard typing) (from 1 to 110 characters) ? \> _typed password is_ **12345678**
 >>
 >>Iterations for SHA-512 (min=16) ? \> **100**
 >>
