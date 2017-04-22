@@ -95,7 +95,7 @@ fi
 
 ########################################################
 
-#Get variables from user
+#Get input from user
 
 while [ "$STEALTH_MODE"  == "OFF" ]
    do
