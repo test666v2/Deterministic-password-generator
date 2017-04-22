@@ -35,9 +35,6 @@ In a terminal window:
 >>
 >>
 >>The built "password" has a size of 5959 characters
-
-
-
 >>
 >>You can choose a position for the start of the reported position and get 70 continuous characters from this position onwards
 >>
