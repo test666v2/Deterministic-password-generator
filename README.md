@@ -50,7 +50,7 @@ In a terminal window:
 Copy / paste the password
 
 
-To get some help, typing in the terminal the script name and any characters displays a small help text:
+To get some help, typing in the terminal the script name and any other characters displays a small help text:
 
 >user@computer:~$ **/path/to/dt_pass_gen.sh whatever**
 >>Deterministic password generator (VERY EARLY ALPHA - things may change)
