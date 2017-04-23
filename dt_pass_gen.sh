@@ -1,33 +1,26 @@
 #!/bin/bash
-
 ###################################################
 
-# Deterministic password generator using argon2 and SHA-512
-# also bash, awk, tr, xxd, grep, etc and your terminal of choice
+# chaff.sh
 
-# see https://github.com/P-H-C/phc-winner-argon2
-# see https://en.wikipedia.org/wiki/Argon2
-# see https://en.wikipedia.org/wiki/SHA-2
+# Purpose: Add additional pseudo-randomness to /dev/random from 4 sources : date, iostat, temperature (please verify ahead in the script) and ping
 
-# argon2 -h
-# Usage:  argon2 [-h] salt [-d] [-t iterations] [-m memory] [-p parallelism] [-l hash length] [-e|-r]
-# Password is read from stdin
-# Parameters:
-#	salt		The salt to use, at least 8 characters
-#  -d		Use Argon2d instead of Argon2i (which is the default)
-#  -t N		Sets the number of iterations to N (default = 3)
-#  -m N		Sets the memory usage of 2^N KiB (default 12)
-#  -p N		Sets parallelism to N threads (default 1)
-#  -l N		Sets hash output length to N bytes (default 32)
-#  -e		Output only encoded hash
-#  -r		Output only the raw bytes of the hash
-#  -h		Print argon2 usage
+# Please install bc, sensors and systat packages
+
+# The terms "random", "randomized" and "randomness" are here loosely used and do not mean "true randomness"
+
+# It would be better to have a reliable hardware RNG or install haveged and be less happy, or both, or to be a tin-foil hat moron and run chaff.sh alongside haveged
+
+# In a terminal window: "chmod +x /your/path/here/chaff.sh" to make the script executable
+
+# run from cron: edit, as root, cron in a terminal window with "crontab -e" and add "@reboot /your/path/here/chaff.sh", save and exit and reboot
+
+# EARLY ALPHA - YOU HAVE BEEN WARNED
 
 ###################################################
 
 # DISCLAIMER
 
-# This script is not supported or endorsed by argon2 creators or maintainers
 # Use this script at your own risk
 # You, as a user, have no right to support even if implied
 # Carefully read the script and then interpret, modify, correct, fork, disdain, whatever
@@ -55,170 +48,105 @@
 
 # Starting values for some variables
 
-ARGON2_CPU_THREADS=2 # -p parallelism
-ARGON2_MAX_PASSWORD_LENGTH=110
-ARGON2_MAX_SALT_LENGTH=64
-ARGON2_MEMORY=16  # -m memory (2^16=65536)
-ARGON2_MIN_ITERATIONS=16
-ARGON2_OBFUSCATOR_LENGTH=16384 # -l hash length
-PASSWORD_FINAL_OUTPUT_LENGTH=64
-SHA_512_MIN_ITERATIONS=16
-STEALTH_MODE="OFF"
-HELP="It\'s better to use a local (non-online) password manager (keepassx comes to mind) than this script\n\n
-If you want a truly random password, type in terminal\n
-head /dev/urandom | tr -dc '[:graph:]' | fold -w64 | shuf -n1\n\n
-If you stil want to use this script, you will have to remember a master password and 2 to 4 numbers (yikes!!)\n\n
-\_(⊙_ʖ⊙)_/     ¯٩(͡๏̯͡๏)۶     (ఠ_ఠ)     (yeah, asking too much from brain power)\n\n
-It asks for:\n
-- a website name / mail address / whatever\n
-- a master password\n
-- the number of SHA-512 iterations (n>=$SHA_512_MIN_ITERATIONS, defaults to $SHA_512_MIN_ITERATIONS) to obfuscate the salt; the higher, the better\n
-- the number of argon2 iterations (n>=$ARGON2_MIN_ITERATIONS, defaults to $ARGON2_MIN_ITERATIONS) to obfuscate the password (argon 2 has a higher CPU cost than SHA-512); the higher, the better\n
-- an optional password length (minimum is 11 characters); just press ENTER to accept the default $PASSWORD_FINAL_OUTPUT_LENGTH characters\n
-- an optional password starting position; just enter <1> for a no-brainer password position\n\n"
+ALPHA_STRING_SAVE_FILE=/dev/shm/.ALPHA_STRING_SAVE_FILE
+CPU_DURESS_MAX=19 # 21 and more is way over the top # used to "disturb" possible predicatibility in temperature readings
+CPU_DURESS_MIN=11 # 10 or less will probably be irrelevant # used to "disturb" possible predicatibility in temperature readings
+DELAY_MAX=20 # in seconds # MAX interval between script looping
+DELAY_MIN=5 # in seconds # MIN interval between script looping
+GET_ENTROPY_FROM_DATE=true
+GET_ENTROPY_FROM_IOSTAT=true
+GET_ENTROPY_FROM_PING=true
+GET_ENTROPY_FROM_TEMPERATURE=true # controversial; may lead to CPU instability because of random "spikiness" caused by bc # set to "false" to avoid this
+IP_TO_PING=0 # 0 is 127.0.0.1 # any other IP will introduce possible unwanted delays, but will probably increase "randomness" # do not ping public IPs
+NUMBER_OF_CORES=$(( $(grep -m 1 -i cores < /proc/cpuinfo | awk '{print $4}') -1 )) # for 4 cores the NUMBER_OF_CORES will be 3 # needed to create temperature increase while spiking CPUs
+NUMBER_OF_PINGS=4
+PING_INTERVAL=0.2 # 0.2 for interval between pings, have to be root for lower value
+RANDOM_CHARS_FILE="/dev/shm/.random.hex" # or whatever you want, perhaps /tmp/.random.hex ?
+RANDOM_ROUNDS_MAX=10 # number of loops for sequential checksums from date (time), iostat, sensors (temperature) and ping # randomized order of execution
+RANDOM_ROUNDS_MIN=1 # 0 is poinless, but may introduce some "randomness"
 
 ########################################################
 
-# Intro
-
-echo
-echo "Deterministic password generator (VERY EARLY ALPHA - things may change)"
-echo
-echo "Generate \"strong\" \"NON-RANDOM\" or \"deterministic passwords\" for your accounts"
-echo
-
-if [ ! -z "$1" ] # show $HELP & exit if there are any number of arguments in command line
-   then
-      echo -e "$HELP"
-      exit
-fi
+entropy_from_date ()
+{
+   [ $GET_ENTROPY_FROM_DATE ] || return
+#   ALPHA_STRING+=$(/bin/date +%s%N | /usr/bin/shasum -a 512 | /usr/bin/awk '{print $1}') # get only shasum from column 1
+   ALPHA_STRING=$(/bin/date +%s%N | /usr/bin/shasum -a 512 | /usr/bin/awk '{print $1}') # get only shasum from column 1
+   printf "$ALPHA_STRING" >> $ALPHA_STRING_SAVE_FILE
+}
 
 ########################################################
 
-#Get input from user
-
-while [ "$STEALTH_MODE"  == "OFF" ]
-   do
-      echo "Stealth Mode"
-      read -r -p "Do you want to hide your typing ? Type [ YES ] & press [ ENTER ] for \"Stealth Mode\" or simply press [ ENTER ] for normal working > " STEALTH_MODE
-      STEALTH_MODE=$(
-            case "$STEALTH_MODE" in
-               "YES") echo "-s" ;;
-               "") echo "" ;;
-               *) echo "OFF" ;; # for all entered keywords other than "YES" or "empty" keep in the loop
-            esac)
-   done
-
-while [ -z "$ARGON2_SALT" ]
-   do
-      read -r "$STEALTH_MODE" -p "Enter website / mail account / whatever (from 1 to $ARGON2_MAX_SALT_LENGTH characters) ? > " ARGON2_SALT
-      ARGON2_SALT_SIZE=$(echo "$ARGON2_SALT" | awk '{print length}')
-      (( ARGON2_SALT_SIZE >= 1 ))  || ARGON2_SALT="" # keep loop until ARGON2_SALT >= 1 # hey USER, at least type ONE character
-      (( ARGON2_SALT_SIZE <= ARGON2_MAX_SALT_LENGTH )) || ARGON2_SALT="" # keep loop until ARGON2_SALT <= ARGON2_MAX_SALT_LENGTH
-   done
-[ -z "$STEALTH_MODE" ] || echo # writeln if STEALTH_MODE is enabled
-
-while [ -z "$ARGON2_PASSWORD" ]
-   do
-      read -r -s -p "Enter master password (forced hidden keyboard typing) (from 1 to $ARGON2_MAX_PASSWORD_LENGTH characters) ? > " ARGON2_PASSWORD
-      ARGON2_PASSWORD_SIZE=$(echo "$ARGON2_PASSWORD" | awk '{print length}')
-      (( ARGON2_PASSWORD_SIZE >= 1 ))  || ARGON2_PASSWORD="" # keep loop until size of ARGON2_PASSWORD >= 1 # hey USER, at least type ONE character
-      (( ARGON2_PASSWORD_SIZE <= ARGON2_MAX_PASSWORD_LENGTH )) || ARGON2_PASSWORD="" # keep loop until size of ARGON2_PASSWORD <= ARGON2_MAX_PASSWORD_LENGTH
-   done
-echo # because of "read -s" :	secure input - don't show typing on a terminal
-
-while (( SHA_512_ITERATIONS < SHA_512_MIN_ITERATIONS ))
-   do
-      read -r "$STEALTH_MODE" -p "Iterations for SHA-512 (min=$SHA_512_MIN_ITERATIONS) ? > " SHA_512_ITERATIONS
-      [ ! -z "${SHA_512_ITERATIONS##*[!0-9]*}" ]  || SHA_512_ITERATIONS=0 # test if the user inputs a positive non zero integer, forcing loop until this condition is met
-   done
-[ -z "$STEALTH_MODE" ] || echo # writeln if STEALTH_MODE is enabled
-
-while (( ARGON2_ITERATIONS < ARGON2_MIN_ITERATIONS ))
-   do
-      read -r "$STEALTH_MODE" -p "Iterations for ARGON2 (min=$ARGON2_MIN_ITERATIONS) ? > " ARGON2_ITERATIONS
-      [ ! -z "${ARGON2_ITERATIONS##*[!0-9]*}" ]  || ARGON2_ITERATIONS=0 # test if the user inputs a positive non zero integer, forcing loop until this condition is met
-   done
-[ -z "$STEALTH_MODE" ] || echo # writeln if STEALTH_MODE is enabled
-
-while (( MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH == 0 ))
-   do
-      read -r "$STEALTH_MODE" -p "Desired length of password (>=11) or press ENTER for the default length of $PASSWORD_FINAL_OUTPUT_LENGTH ? > " MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH
-      MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH=$(
-            case "$MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH" in
-               "") echo $PASSWORD_FINAL_OUTPUT_LENGTH ;;
-               *) [ -z "${MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH##*[!0-9]*}" ] && echo 0 || echo "$MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH";;
-            esac)
-      (( MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH >= 11 ))  || MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH=0 # keep loop until password size >= 11 (11 is "hardcoded" for a decent password length)
-   done
-PASSWORD_FINAL_OUTPUT_LENGTH=$MODIFY_PASSWORD_FINAL_OUTPUT_LENGTH
-[ -z "$STEALTH_MODE" ] || echo # writeln if STEALTH_MODE is enabled
+entropy_from_iostat ()
+{
+   [ $GET_ENTROPY_FROM_IOSTAT ] || return
+#   ALPHA_STRING+=$(/usr/bin/iostat | /usr/bin/shasum -a 512 | /usr/bin/awk '{print $1}') # get only shasum from column 1
+   ALPHA_STRING=$(/usr/bin/iostat | /usr/bin/shasum -a 512 | /usr/bin/awk '{print $1}') # get only shasum from column 1
+   printf "$ALPHA_STRING" >> $ALPHA_STRING_SAVE_FILE
+}
 
 ########################################################
 
-# Obfuscators for ARGON2_PASSWORD & ARGON2_SALT
-
-# Step 1 - SHA-512 obfuscator
-
-echo "Computing SHA-512..."
-for (( i  = 1; i <= SHA_512_ITERATIONS; i++ ))
+entropy_from_temperature () ### probably way over the top
+{
+   [ $GET_ENTROPY_FROM_TEMPERATURE ] || return
+   for (( CORE = 0; CORE <= NUMBER_OF_CORES; CORE++ )) # launch bc up to $NUMBER_OF_CORES + 1 threads, so for 4 cores we get 4 "simultaneous" threads
       do
-         ARGON2_PASSWORD+=$(echo "$ARGON2_PASSWORD" | shasum -a 512 | awk '{ print $1 }') # cumulative obfuscation for password using SHA-512
-         ARGON2_SALT+=$(echo "$ARGON2_SALT" | shasum -a 512 | awk '{ print $1 }') # cumulative obfuscation for salt using SHA-512
-     done
-
-# Step 2 - Process ARGON2_PASSWORD
-
-ARGON2_PASSWORD=$(echo "$ARGON2_PASSWORD" | rev) # invert password string (for some more obfuscation "magic", just because we can) ### not satisfied, will see a better way, perhaps some "deterministic position switching" ##
-ARGON2_PASSWORD=$(echo "$ARGON2_PASSWORD" | xxd -r -p | tr -cd '!-~' | cut -c 1-$ARGON2_MAX_PASSWORD_LENGTH) # generate ASCII string from [!] to [~] characters, triming the excess ### not satisfied, will see a better way than trimming ##
-
-# Step 3 - Process ARGON2_SALT
-
-ARGON2_SALT=$(echo "$ARGON2_SALT" | rev) # invert salt string (for some more obfuscation "magic", just because we can) ### not satisfied, will see a better way, perhaps some "deterministic position switching" ##
-ARGON2_SALT=$(echo "$ARGON2_SALT" | xxd -r -p | tr -cd '!-~' | cut -c 1-$ARGON2_MAX_SALT_LENGTH) # generate ASCII string from [!] to [~] characters, triming the excess ### not satisfied, will see a better way than trimming ##
-
-########################################################
-
-# "Argonize" -> argon2 used as another obfuscator
-
-echo "Computing ARGON2..."
-ARGON2_OUTPUT=$(echo -n "'$ARGON2_PASSWORD'" | argon2 "$ARGON2_SALT" -d -t $ARGON2_ITERATIONS -m $ARGON2_MEMORY -p $ARGON2_CPU_THREADS -l $ARGON2_OBFUSCATOR_LENGTH)
+         CPU_DURESS=$(( ( RANDOM % (( CPU_DURESS_MAX - CPU_DURESS_MIN + 1 )) )  + CPU_DURESS_MIN ))
+         eval "taskset -c $CORE echo 2^2^$CPU_DURESS | /usr/bin/bc > /dev/null &"
+      done
+# wait for /usr/bin/bc to finish in all threads
+      BC_IN_MEM=true
+      while $BC_IN_MEM
+         do
+            TEST=$(pgrep -a bc | awk '{print $2}')
+            [ "$TEST" == "/usr/bin/bc" ] || BC_IN_MEM=false
+            sleep 0.2
+         done
+   ALPHA_STRING=$(/usr/bin/sensors -u | /usr/bin/shasum -a 512 | /usr/bin/awk '{print $1}') # poll temperatures from sensors, get only shasum from column 1
+   printf "$ALPHA_STRING" >> $ALPHA_STRING_SAVE_FILE
+}
 
 ########################################################
 
-# Process argon2 output
-
-ARGON2_OUTPUT_HASH=$(echo "$ARGON2_OUTPUT" | grep "Hash"  | awk '{ print $2 }')
-
-########################################################
-
-# Build "deterministic password" ("very long" password)
-
-FINAL_PASSWORD=$(echo "$ARGON2_OUTPUT_HASH" | xxd -r -p | tr -cd '!-~')
-FINAL_PASSWORD_SIZE=$(echo "$FINAL_PASSWORD" | awk '{print length}')
+entropy_from_ping ()
+{
+   [ $GET_ENTROPY_FROM_PING ] || return
+   ALPHA_STRING=$(/bin/ping -i $PING_INTERVAL -c $NUMBER_OF_PINGS $IP_TO_PING | /usr/bin/shasum -a 512 | /usr/bin/awk '{print $1}') # get only shasum from column 1
+   printf "$ALPHA_STRING" >> $ALPHA_STRING_SAVE_FILE
+}
 
 ########################################################
 
-# Ask user for the starting position for the "deterministic password"
-
-echo
-echo "The built \"password\" has a size of $FINAL_PASSWORD_SIZE characters"
-echo "You can choose a position for the start of the reported position and get $PASSWORD_FINAL_OUTPUT_LENGTH continuous characters from this position onwards"
-echo "You can input a number between 1 and "$(( FINAL_PASSWORD_SIZE - PASSWORD_FINAL_OUTPUT_LENGTH + 1 ))
-while (( PASSWORD_POSITION_START == 0 ))
+# MAIN
+/usr/bin/printf "" > $ALPHA_STRING_SAVE_FILE
+/bin/cat /dev/null > $RANDOM_CHARS_FILE
+while true
    do
-      read -r "$STEALTH_MODE" -p "Password Position start ? (enter <1> for a no-brainer position) > " PASSWORD_POSITION_START
-      [ ! -z "${PASSWORD_POSITION_START##*[!0-9]*}" ]  || PASSWORD_POSITION_START=0 #  test if the user inputs a positive non zero integer, forcing loop until this condition is met
-      (( PASSWORD_POSITION_START <= $(( FINAL_PASSWORD_SIZE - PASSWORD_FINAL_OUTPUT_LENGTH + 1 )) ))  || PASSWORD_POSITION_START=0 # test for upper limit size
+      ENTROPY_GATHERING_ROUNDS=$(( ( RANDOM % (( RANDOM_ROUNDS_MAX - RANDOM_ROUNDS_MIN + 1 )) )  + RANDOM_ROUNDS_MIN ))
+      for (( i  = 1; i <= ENTROPY_GATHERING_ROUNDS; i++ )) # generate up to $RANDOM_ROUNDS_MAX checksums from date (time), iostat, sensors (temperature) and ping
+         do
+            WHAT_TO_DO=$(/usr/bin/printf "1\n2\n3\n4" | shuf)
+            echo "$WHAT_TO_DO" | \
+               while read -r TO_DO
+                  do
+                    case "$TO_DO" in
+                        1) entropy_from_date ;;
+                        2) entropy_from_iostat ;;
+                        3) entropy_from_temperature ;;
+                        4) entropy_from_ping
+                     esac
+                  done
+         done
+BETA_STRING=$(/usr/bin/fold -w1 < $ALPHA_STRING_SAVE_FILE | /usr/bin/shuf | /usr/bin/tr -d '\n' | /usr/bin/fold -w2) # break output from $ALPHA_STRING_SAVE_FILE in 1 character lines, mix (shuf), remove line break,  break again but in 2 characters lines
+      /usr/bin/printf "" > $ALPHA_STRING_SAVE_FILE
+      echo "$BETA_STRING" | \
+         while read -r HEXOR
+            do
+               /usr/bin/printf "\x$HEXOR" >> $RANDOM_CHARS_FILE # printf each line as hexadecimal coded characters to $RANDOM_CHARS_FILE
+            done
+      /bin/cat $RANDOM_CHARS_FILE > /dev/random # feed $RANDOM_CHARS_FILE to the /dev/random pool
+      /bin/cat /dev/null > $RANDOM_CHARS_FILE
+      DELAY=$(( ( RANDOM % (( DELAY_MAX - DELAY_MIN + 1 )) )  + DELAY_MIN ))
+      /bin/sleep $DELAY
    done
-PASSWORD_POSITION_END=$(( PASSWORD_POSITION_START + PASSWORD_FINAL_OUTPUT_LENGTH - 1 ))
-[ -z "$STEALTH_MODE" ] || echo # writeln if STEALTH_MODE is enabled
-
-########################################################
-
-# Show the "deterministic password" to user
-
-echo
-echo "Outputing $PASSWORD_FINAL_OUTPUT_LENGTH characters length password:"
-echo "$FINAL_PASSWORD" | cut -c $PASSWORD_POSITION_START-$PASSWORD_POSITION_END # Show password
-echo
